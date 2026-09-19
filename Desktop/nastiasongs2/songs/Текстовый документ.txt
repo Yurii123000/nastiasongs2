@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Песни Насти Луневой</title>
+  <style>
+    body {
+      margin:0;
+      font-family:'Georgia', serif;
+      background-image: url("background.jpg");
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      color:#fff;
+    }
+    header {
+      padding:20px;
+      background:rgba(0,0,0,0.6);
+      text-align:left;
+    }
+    h1 {
+      margin:0;
+      font-size:32px;
+      font-style:italic;
+      color:#ff99cc;
+    }
+    #player {
+      margin:20px auto;
+      width:500px;
+      background:rgba(17,17,17,0.8);
+      padding:15px;
+      border-radius:8px;
+      text-align:center;
+    }
+    audio { width:100%; }
+    .controls button {
+      margin:5px;
+      padding:6px 10px;
+      border:none;
+      border-radius:6px;
+      font-weight:bold;
+      cursor:pointer;
+    }
+    .btn { background:#4cc9f0; color:#000; }
+    .btn-pink { background:#ff99cc; color:#000; }
+    #global-stats {
+      margin-top:10px;
+      font-size:14px;
+      color:#4cc9f0;
+    }
+    ul { list-style:none; padding:0; margin-top:10px; text-align:left; }
+    li {
+      padding:10px;
+      margin-bottom:8px;
+      background:rgba(0,0,0,0.4);
+      border-radius:6px;
+      cursor:pointer;
+    }
+    li.active { background:#333; }
+    .track-title { font-weight:bold; color:#ff99cc; }
+    .track-controls { margin-top:6px; }
+    .pill {
+      padding:4px 8px;
+      border-radius:6px;
+      background:#4cc9f0;
+      color:#000;
+      font-weight:bold;
+      text-decoration:none;
+      margin-right:6px;
+    }
+    .like-btn {
+      cursor:pointer;
+      background:#ff99cc;
+      color:#000;
+      border:none;
+      border-radius:6px;
+      padding:4px 8px;
+      font-weight:bold;
+    }
+    .stats { font-size:12px; color:#aaa; margin-top:4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Настя Лунева</h1>
+  </header>
+
+  <main>
+    <div id="player">
+      <audio id="audio" controls></audio>
+      <div class="controls">
+        <button class="btn" onclick="prevTrack()">⏮ Prev</button>
+        <button class="btn" onclick="nextTrack()">⏭ Next</button>
+        <button class="btn-pink" onclick="toggleShuffle()">🔀 Shuffle</button>
+        <button class="btn-pink" onclick="toggleRepeat()">🔁 Repeat</button>
+      </div>
+
+      <div id="global-stats">
+        Всего лайков: <span id="total-likes">0</span> | Всего загрузок: <span id="total-downloads">0</span>
+      </div>
+
+      <ul id="playlist"></ul>
+    </div>
+  </main>
+
+  <script>
+    const tracks = [
+      {id:"boze_moi", title:"Боже мой", src:"music/Boze moi.mp3"},
+      {id:"kogda_cvety", title:"Когда земля покроется цветами", src:"music/Kogda ziemlia pokroetsa cvetami....mp3"},
+      {id:"kolibelnaia", title:"Колыбельная", src:"music/Kolibelnaia.mp3"},
+      {id:"nu_vot", title:"Ну вот", src:"music/Nu vot.mp3"},
+      {id:"oblaka", title:"Облака", src:"music/Oblaka.mp3"},
+      {id:"radost_legovi", title:"Радость легови", src:"music/Radost legovi.mp3"},
+      {id:"tvoi_mir", title:"Твой мир", src:"music/Tvoi mir.mp3"},
+      {id:"yablony", title:"Яблони", src:"music/Yablony.mp3"}
+    ];
+
+    let current = 0;
+    let shuffle = false;
+    let repeat = false;
+    const audio = document.getElementById("audio");
+    const playlist = document.getElementById("playlist");
+
+    function updateGlobalStats(){
+      let totalLikes = 0;
+      let totalDownloads = 0;
+      tracks.forEach(track=>{
+        totalLikes += parseInt(localStorage.getItem(track.id+'_likes') || 0);
+        totalDownloads += parseInt(localStorage.getItem(track.id+'_downloads') || 0);
+      });
+      document.getElementById('total-likes').textContent = totalLikes;
+      document.getElementById('total-downloads').textContent = totalDownloads;
+    }
+
+    tracks.forEach((track,i)=>{
+      const li=document.createElement("li");
+      li.innerHTML = `
+        <div class="track-title">${track.title}</div>
+        <div class="track-controls">
+          <a class="pill download-btn" href="${track.src}" download>Скачать</a>
+          <button class="like-btn">❤️ (<span class="like-count">0</span>)</button>
+        </div>
+        <div class="stats">Загрузок: <span class="download-count">0</span></div>
+      `;
+      li.onclick=()=>playTrack(i);
+      playlist.appendChild(li);
+
+      const likeCountEl = li.querySelector('.like-count');
+      const downloadCountEl = li.querySelector('.download-count');
+      let likes = localStorage.getItem(track.id+'_likes') || 0;
+      let downloads = localStorage.getItem(track.id+'_downloads') || 0;
+      likeCountEl.textContent = likes;
+      downloadCountEl.textContent = downloads;
+
+      li.querySelector('.like-btn').addEventListener('click',(e)=>{
+        e.stopPropagation();
+        likes++;
+        localStorage.setItem(track.id+'_likes', likes);
+        likeCountEl.textContent = likes;
+        updateGlobalStats();
+      });
+
+      li.querySelector('.download-btn').addEventListener('click',(e)=>{
+        downloads++;
+        localStorage.setItem(track.id+'_downloads', downloads);
+        downloadCountEl.textContent = downloads;
+        updateGlobalStats();
+      });
+    });
+
+    function playTrack(i){
+      current=i;
+      audio.src=tracks[i].src;
+      audio.play();
+      updateActive();
+    }
+
+    function nextTrack(){
+      if(shuffle){
+        current=Math.floor(Math.random()*tracks.length);
+      } else {
+        current=(current+1)%tracks.length;
+      }
+      playTrack(current);
+    }
+
+    function prevTrack(){
+      current=(current-1+tracks.length)%tracks.length;
+      playTrack(current);
+    }
+
+    function toggleShuffle(){ shuffle=!shuffle; alert("Shuffle: "+shuffle); }
+    function toggleRepeat(){ repeat=!repeat; alert("Repeat: "+repeat); }
+
+    audio.onended=()=>{
+      if(repeat){ playTrack(current); }
+      else { nextTrack(); }
+    };
+
+    function updateActive(){
+      [...playlist.children].forEach((li,i)=>{
+        li.className = (i===current) ? "active" : "";
+      });
+    }
+
+    playTrack(0);
+    updateGlobalStats();
+  </script>
+</body>
+</html>
